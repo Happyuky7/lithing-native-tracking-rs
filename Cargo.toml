@@ -11,7 +11,9 @@ repository = "https://github.com/Happyuky7/lithing-native-tracking-rs"
 rust-version = "1.92"
 
 [workspace.dependencies]
-lithing-tracking = { path = "crates/lithing-tracking" }
+# No default features: each member picks camera / directml itself (directml on Linux would
+# ask ort for a DirectML build of ONNX Runtime that does not exist there).
+lithing-tracking = { path = "crates/lithing-tracking", default-features = false }
 lithing-camera-controls = { path = "crates/lithing-camera-controls" }
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "copy-dylibs", "tls-native", "api-24"] }
 crossbeam-channel = "0.5"

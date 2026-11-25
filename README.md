@@ -161,9 +161,15 @@ target\release\lithing-track run camera:0 --mode MJPEG:1280x720@30 --duration 20
   a crate that wants DirectML must ask for it (the Tauri plugin's `directml`).
 * The camera backend generates its V4L2 bindings with bindgen: install
   `clang` and `libclang-dev` (Debian / Ubuntu) or `clang-devel` (Fedora).
-* The CPU build of ONNX Runtime that `ort` downloads for x86_64 Linux is a
-  static library, so the binary needs no `libonnxruntime.so` at run time;
-  only the `.onnx` models (the app bundles them under `<resources>/models`).
+* The static ONNX Runtime that `ort` downloads for x86_64 Linux needs glibc
+  2.38 and GCC 13's libstdc++ to link (Debian 13, Ubuntu 24.04 or newer). For
+  binaries that run on older distributions, build with the `load-dynamic`
+  feature and ship Microsoft's `libonnxruntime.so` (glibc 2.28; from the
+  `Microsoft.ML.OnnxRuntime` NuGet package, `runtimes/linux-x64/native/`):
+  it is loaded from `inference::set_runtime_library` (the Tauri plugin passes
+  `<resources>/libonnxruntime.so`), else `ORT_DYLIB_PATH`, else next to the
+  executable, else the system's library path. The app's Linux packages do
+  this and bundle the models under `<resources>/models`.
 * Cameras go through V4L2 (nokhwa `input-v4l`); your user must be in the
   `video` group. "Keep frame rate" writes the V4L2 controls of
   `/dev/videoN` (`v4l2-ctl -d N -L` shows the same ones).

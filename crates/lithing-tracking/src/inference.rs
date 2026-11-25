@@ -98,9 +98,54 @@ pub type Result<T> = std::result::Result<T, InferenceError>;
 
 pub(crate) fn environment() -> Result<&'static ort::environment::Environment> {
     static ENV: OnceLock<std::result::Result<ort::environment::Environment, String>> = OnceLock::new();
-    ENV.get_or_init(|| ort::init().with_name("lithing-tracking").with_telemetry(false).build().map_err(|e| e.to_string()))
-        .as_ref()
-        .map_err(|e| InferenceError::Ort(e.clone()))
+    ENV.get_or_init(|| {
+        #[cfg(feature = "load-dynamic")]
+        let builder = {
+            let library = runtime_library();
+            ort::init_from(&library).map_err(|e| format!("could not load ONNX Runtime from {}: {e}", library.display()))?
+        };
+        #[cfg(not(feature = "load-dynamic"))]
+        let builder = ort::init();
+        builder.with_name("lithing-tracking").with_telemetry(false).build().map_err(|e| e.to_string())
+    })
+    .as_ref()
+    .map_err(|e| InferenceError::Ort(e.clone()))
+}
+
+/// The ONNX Runtime shared library a host chose (feature `load-dynamic`).
+#[cfg(feature = "load-dynamic")]
+static RUNTIME_LIBRARY: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+/// Feature `load-dynamic`: the ONNX Runtime shared library to load, e.g. the copy an app
+/// bundles (the Tauri plugin passes `<resources>/libonnxruntime.so`). Takes effect only
+/// before the first model loads; returns false if a library was already chosen.
+#[cfg(feature = "load-dynamic")]
+pub fn set_runtime_library(path: impl Into<std::path::PathBuf>) -> bool {
+    RUNTIME_LIBRARY.set(path.into()).is_ok()
+}
+
+/// File name of the ONNX Runtime shared library on this platform (`libonnxruntime.so`, ...).
+#[cfg(feature = "load-dynamic")]
+pub fn runtime_library_name() -> String {
+    format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX)
+}
+
+/// The library `set_runtime_library` chose, else `ORT_DYLIB_PATH`, else one next to the
+/// executable, else the bare name (the system's library search path).
+#[cfg(feature = "load-dynamic")]
+fn runtime_library() -> std::path::PathBuf {
+    if let Some(path) = RUNTIME_LIBRARY.get() {
+        return path.clone();
+    }
+    if let Some(path) = std::env::var_os("ORT_DYLIB_PATH").filter(|value| !value.is_empty()) {
+        return path.into();
+    }
+    let name = runtime_library_name();
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
+        .filter(|path| path.is_file())
+        .unwrap_or_else(|| name.into())
 }
 
 /// Spawns ONNX Runtime's pool threads at the configured priority.

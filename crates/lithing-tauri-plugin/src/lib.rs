@@ -368,6 +368,17 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![commands::start, commands::stop, commands::update_settings, commands::calibrate, commands::status, commands::list_cameras, commands::set_keep_frame_rate, commands::list_camera_controls, commands::capture_level, commands::list_camera_formats])
         .setup(|app, _api| {
             app.manage(TrackingState::default());
+            // Feature `load-dynamic` (the Linux packages): ONNX Runtime is the shared library
+            // the app bundles next to its models. Without one there, lithing-tracking tries
+            // ORT_DYLIB_PATH and the system's library path; if that fails too, `start`
+            // returns an error and the app keeps the web tracker.
+            #[cfg(feature = "load-dynamic")]
+            if let Ok(dir) = app.path().resource_dir() {
+                let library = dir.join(lithing_tracking::inference::runtime_library_name());
+                if library.is_file() {
+                    lithing_tracking::inference::set_runtime_library(library);
+                }
+            }
             Ok(())
         })
         .on_drop(|app| {

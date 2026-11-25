@@ -17,6 +17,11 @@ directml = ["ort/directml"]
 cuda = ["ort/cuda"]
 # XNNPACK CPU execution provider (needs an ONNX Runtime build that includes it).
 xnnpack = ["ort/xnnpack"]
+# Load ONNX Runtime from a shared library at run time (`inference::set_runtime_library`,
+# else ORT_DYLIB_PATH, else next to the executable, else the system path) instead of
+# linking it. The static Linux build `ort` downloads needs glibc 2.38 and GCC 13's
+# libstdc++; Microsoft's libonnxruntime.so needs glibc 2.28.
+load-dynamic = ["ort/load-dynamic"]
 serde = ["dep:serde", "lithing-camera-controls/serde"]
 
 [dependencies]

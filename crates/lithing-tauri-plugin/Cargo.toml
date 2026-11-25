@@ -15,9 +15,12 @@ default = ["camera", "directml"]
 camera = ["lithing-tracking/camera"]
 directml = ["lithing-tracking/directml"]
 cuda = ["lithing-tracking/cuda"]
+# Load ONNX Runtime from a shared library at run time (the app bundles it on Linux)
+# instead of linking the static build `ort` downloads.
+load-dynamic = ["lithing-tracking/load-dynamic"]
 
 [dependencies]
-lithing-tracking = { workspace = true, features = ["serde"] }
+lithing-tracking = { workspace = true, default-features = false, features = ["serde"] }
 tauri = { version = "2.11", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
