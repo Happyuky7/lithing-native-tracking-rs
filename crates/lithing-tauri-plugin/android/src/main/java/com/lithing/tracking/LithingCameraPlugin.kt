@@ -20,7 +20,10 @@ import android.util.Range
 import android.util.Size
 import android.view.Surface
 import android.view.WindowManager
+import android.webkit.WebView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import app.tauri.PermissionState
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -70,8 +73,8 @@ class StartCameraArgs {
 /**
  * Native tracking's camera on Android: Camera2 delivering YUV_420_888 images to Rust
  * (no preview surface, no copy in Kotlin), and the models copied out of the APK.
- * The camera follows the activity: closed while the app is in the background,
- * reopened when it comes back, so it is never held where the user cannot see the app.
+ * The camera follows the activity: closed while the app is not visible (stopped),
+ * reopened when it is again, so it is never held where the user cannot see the app.
  */
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.CAMERA], alias = "camera")])
 class LithingCameraPlugin(private val activity: Activity) : Plugin(activity) {
@@ -88,6 +91,7 @@ class LithingCameraPlugin(private val activity: Activity) : Plugin(activity) {
   private var reader: ImageReader? = null
   /** Bumped on every open / close: callbacks of an older camera are ignored. */
   private var generation = 0
+  /** The activity is not visible: the camera stays closed until it is. */
   @Volatile private var paused = false
   @Volatile private var displayRotation = 0
   private var notReadySince = 0L
@@ -172,22 +176,34 @@ class LithingCameraPlugin(private val activity: Activity) : Plugin(activity) {
 
   // ---- Activity ------------------------------------------------------------------------
 
-  override fun onPause() {
-    paused = true
-    handler.post { if (selected != null) close() }
-  }
-
-  override fun onResume() {
-    paused = false
-    handler.post { if (selected != null && device == null) open(null) }
-  }
-
-  override fun onDestroy() {
-    handler.post {
-      selected = null
-      close()
-      thread.quitSafely()
+  // Plugin.onPause / onResume are not delivered by every Tauri version (2.11's
+  // TauriLifecycleObserver is never registered), so the plugin watches the activity itself.
+  // Stop / start rather than pause / resume: a permission dialog or another window taking
+  // the focus in split screen pauses the activity while the user still sees it.
+  private val lifecycle = object : DefaultLifecycleObserver {
+    override fun onStart(owner: LifecycleOwner) {
+      paused = false
+      handler.post { if (selected != null && device == null) open(null) }
     }
+
+    override fun onStop(owner: LifecycleOwner) {
+      paused = true
+      handler.post { if (selected != null) close() }
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+      owner.lifecycle.removeObserver(this)
+      handler.post {
+        selected = null
+        close()
+        thread.quitSafely()
+      }
+    }
+  }
+
+  override fun load(webView: WebView) {
+    super.load(webView)
+    activity.runOnUiThread { (activity as? LifecycleOwner)?.lifecycle?.addObserver(lifecycle) }
   }
 
   // ---- Camera --------------------------------------------------------------------------

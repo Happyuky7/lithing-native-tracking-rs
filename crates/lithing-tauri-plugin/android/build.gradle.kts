@@ -29,5 +29,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
+    // DefaultLifecycleObserver (the camera follows the activity's start / stop).
+    implementation("androidx.lifecycle:lifecycle-common:2.8.7")
     implementation(project(":tauri-android"))
 }
