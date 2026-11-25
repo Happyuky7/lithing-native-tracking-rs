@@ -1,6 +1,6 @@
 <div align="center">
 
-![Lithing Native Tracking](https://vtuber-lithing.happyuky7.com/brand/banners/banner-1.jpg)
+![Lithing Native Tracking](.github/assets/banner.png)
 
 # Lithing Native Tracking
 
