@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Lets the web view start, stop, configure and read native tracking."
+permissions = ["allow-start", "allow-stop", "allow-update-settings", "allow-calibrate", "allow-status", "allow-list-cameras", "allow-set-keep-frame-rate", "allow-list-camera-controls", "allow-capture-level", "allow-list-camera-formats"]

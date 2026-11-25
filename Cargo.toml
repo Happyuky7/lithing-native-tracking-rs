@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/lithing-camera-controls", "crates/lithing-tracking", "crates/lithing-tracking-cli", "crates/lithing-tauri-plugin", "crates/lithing-render", "crates/lithing-shell"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+authors = ["Happyuky7"]
+repository = "https://github.com/Happyuky7/lithing-native-tracking-rs"
+rust-version = "1.92"
+
+[workspace.dependencies]
+lithing-tracking = { path = "crates/lithing-tracking" }
+lithing-camera-controls = { path = "crates/lithing-camera-controls" }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "copy-dylibs", "tls-native", "api-24"] }
+crossbeam-channel = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+
+[profile.release]
+debug = 1
+lto = "thin"
+codegen-units = 4
+
+[profile.dev.package."*"]
+opt-level = 2

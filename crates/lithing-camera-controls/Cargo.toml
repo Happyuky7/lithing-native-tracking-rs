@@ -1,0 +1,29 @@
+[package]
+name = "lithing-camera-controls"
+description = "Keeps a webcam at its frame rate in low light (UVC auto-exposure priority, exposure cap, gain) and restores its controls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+# The same `windows` version nokhwa's Media Foundation backend uses (one copy in the build).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_Media",
+    "Win32_Media_MediaFoundation",
+    "Win32_Media_DirectShow",
+    "Win32_Media_KernelStreaming",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"

@@ -1,0 +1,30 @@
+[package]
+name = "tauri-plugin-lithing-tracking"
+description = "Tauri 2 plugin: native lithing-tracking, streamed to the web view over a Channel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+links = "tauri-plugin-lithing-tracking"
+
+[lib]
+name = "tauri_plugin_lithing_tracking"
+
+[features]
+default = ["camera", "directml"]
+camera = ["lithing-tracking/camera"]
+directml = ["lithing-tracking/directml"]
+cuda = ["lithing-tracking/cuda"]
+
+[dependencies]
+lithing-tracking = { workspace = true, features = ["serde"] }
+tauri = { version = "2.11", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+tauri-plugin = { version = "2.6", features = ["build"] }
+
+[dev-dependencies]
+tauri = { version = "2.11", features = ["test"] }

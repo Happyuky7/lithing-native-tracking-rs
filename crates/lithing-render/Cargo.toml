@@ -1,0 +1,10 @@
+[package]
+name = "lithing-render"
+description = "Phase 2 skeleton: native VRM renderer (wgpu). Interfaces only, see ARCHITECTURE.md."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+lithing-tracking = { workspace = true, default-features = false }

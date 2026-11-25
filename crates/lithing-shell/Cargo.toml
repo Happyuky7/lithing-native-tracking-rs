@@ -1,0 +1,10 @@
+[package]
+name = "lithing-shell"
+description = "Phase 3 skeleton: native UI shell and extension host. Interfaces only, see ARCHITECTURE.md."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde_json = { workspace = true }

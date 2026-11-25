@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-keep-frame-rate"
+description = "Enables the set_keep_frame_rate command without any pre-configured scope."
+commands.allow = ["set_keep_frame_rate"]
+
+[[permission]]
+identifier = "deny-set-keep-frame-rate"
+description = "Denies the set_keep_frame_rate command without any pre-configured scope."
+commands.deny = ["set_keep_frame_rate"]

@@ -1,0 +1,38 @@
+[package]
+name = "lithing-tracking"
+description = "Native face and hand tracking for Vtuber-Lithing (MediaPipe models on ONNX Runtime)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["camera", "directml"]
+# Live camera capture through nokhwa (MSMF on Windows, V4L2 on Linux).
+camera = ["dep:nokhwa"]
+# DirectML execution provider (Windows; any DX12 GPU: NVIDIA, AMD, Intel).
+directml = ["ort/directml"]
+# CUDA execution provider (NVIDIA, needs the CUDA 12 runtime and cuDNN 9 on PATH).
+cuda = ["ort/cuda"]
+# XNNPACK CPU execution provider (needs an ONNX Runtime build that includes it).
+xnnpack = ["ort/xnnpack"]
+serde = ["dep:serde", "lithing-camera-controls/serde"]
+
+[dependencies]
+ort.workspace = true
+crossbeam-channel.workspace = true
+# "Keep frame rate": the camera controls behind low-light frame drops (Windows / Linux).
+lithing-camera-controls.workspace = true
+thiserror.workspace = true
+serde = { workspace = true, optional = true }
+nokhwa = { version = "0.10", optional = true, features = ["input-native"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+serde_json = { workspace = true }
