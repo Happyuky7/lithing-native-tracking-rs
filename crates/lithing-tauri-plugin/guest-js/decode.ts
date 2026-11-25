@@ -60,7 +60,7 @@ export interface NativeFrame {
   eyes?: { right: NativeEye; left: NativeEye };
   /** Raw gaze before baseline and mirroring (gaze.ts in the app, gaze.rs in lithing-tracking), while a face is tracked (newer plugins only). */
   gaze?: { x: number; y: number };
-  providers: { face: 'cpu' | 'directml' | 'cuda'; hands: 'cpu' | 'directml' | 'cuda' };
+  providers: { face: 'cpu' | 'directml' | 'cuda' | 'nnapi'; hands: 'cpu' | 'directml' | 'cuda' | 'nnapi' };
 }
 
 export const TRACKING_KEYS: readonly (keyof TrackingData)[] = ['headYaw', 'headPitch', 'headRoll', 'headX', 'headY', 'headZ', 'mouthOpen', 'blinkLeft', 'blinkRight', 'eyeLookX', 'eyeLookY', 'happy', 'angry', 'surprised'];
@@ -77,7 +77,7 @@ export const GESTURES: readonly HandGesture[] = ['none', 'open', 'fist', 'victor
 const MAGIC = 0x3146544c; // "LTF1" little-endian
 const FLAG_TRACKING = 1, FLAG_FACE_UPDATED = 2, FLAG_HANDS_UPDATED = 4, FLAG_BLENDSHAPES = 8, FLAG_TONGUE = 16, FLAG_HAND_LANDMARKS = 32, FLAG_FACE_LANDMARKS = 64, FLAG_EYES = 128, FLAG_GAZE = 256;
 const TRACKING_OFFSET = 40, BLENDSHAPES_OFFSET = 96, HANDS_OFFSET = 324, HAND_SIZE = 132;
-const PROVIDERS = ['cpu', 'directml', 'cuda'] as const;
+const PROVIDERS = ['cpu', 'directml', 'cuda', 'nnapi'] as const;
 
 /** Decodes one payload; throws on anything that is not a version-1 frame. */
 export function decodeFrame(buffer: ArrayBuffer | ArrayBufferView): NativeFrame {

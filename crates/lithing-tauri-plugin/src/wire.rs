@@ -67,6 +67,7 @@ fn provider_code(provider: ExecutionProvider) -> u8 {
     match provider {
         ExecutionProvider::DirectML => 1,
         ExecutionProvider::Cuda => 2,
+        ExecutionProvider::Nnapi => 3,
         _ => 0,
     }
 }

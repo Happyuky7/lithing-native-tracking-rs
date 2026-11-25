@@ -15,6 +15,9 @@ camera = ["dep:nokhwa"]
 directml = ["ort/directml"]
 # CUDA execution provider (NVIDIA, needs the CUDA 12 runtime and cuDNN 9 on PATH).
 cuda = ["ort/cuda"]
+# NNAPI execution provider (Android: the phone's GPU / DSP / NPU drivers). The ONNX Runtime
+# `ort` downloads for aarch64-linux-android and x86_64-linux-android is built with it.
+nnapi = ["ort/nnapi"]
 # XNNPACK CPU execution provider (needs an ONNX Runtime build that includes it).
 xnnpack = ["ort/xnnpack"]
 # Load ONNX Runtime from a shared library at run time (`inference::set_runtime_library`,

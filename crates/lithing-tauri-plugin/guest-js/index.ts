@@ -67,7 +67,7 @@ export interface NativeStartOptions {
   /** Explicit camera mode; null / absent = Auto. A mode the camera rejects opens in Auto (status().cameraWarning). */
   cameraMode?: NativeCameraMode | null;
   videoFile?: string;
-  provider?: 'auto' | 'directml' | 'cuda' | 'cpu';
+  provider?: 'auto' | 'directml' | 'cuda' | 'cpu' | 'nnapi';
   cpuThreads?: number;
   priority?: 'lowest' | 'below-normal' | 'normal' | 'above-normal';
   palmInterval?: number;

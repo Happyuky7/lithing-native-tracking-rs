@@ -158,6 +158,32 @@ camera it answers from the list read when the camera opened. Client:
   ARCHITECTURE.md, "Light filters"); a software-rendered WebView skips the
   small blur, which the native filter does not imitate.
 
+## Android
+
+The same plugin runs on Android with `default-features = false, features = ["nnapi"]`
+(no nokhwa, no DirectML). What differs:
+
+* Camera: the plugin's Kotlin half (`android/`, registered by the plugin as
+  `com.lithing.tracking.LithingCameraPlugin`) opens Camera2 with an `ImageReader`
+  (YUV_420_888, no preview) and hands each image to Rust through JNI; the frames
+  feed `push::push_source`, so the tracker runs unchanged. `list_cameras` lists
+  front cameras first with the WebView's labels (`0: camera2 1, facing front
+  (Camera2)`), so `matchNativeCamera` finds the camera chosen in the page and an
+  empty choice opens the selfie camera. The camera permission is asked on `start`
+  if the page has not got it yet. `keepFrameRate` picks the fixed AE range
+  (30-30) over a variable one. The camera is closed while the activity is paused
+  and reopened on resume; if another user takes it (the WebView's
+  `getUserMedia`), it stays closed. `list_camera_formats` and
+  `list_camera_controls` return nothing (Auto only).
+* Models: bundled as APK assets under `models/` (the app's
+  `tauri.android.conf.json` resources); `start` copies them to
+  `<files>/lithing-models` once per install / update and loads them from there.
+* ONNX Runtime: static, from `ort`'s Android download; the app must ship
+  `libc++_shared.so` in `jniLibs/<abi>` (the app's build.rs copies it from the NDK).
+* Providers: Auto is the CPU; `provider: "nnapi"` tries NNAPI.
+* One camera user at a time: the page must stop native tracking before it opens
+  the camera in the WebView (the app's "Use as PC camera" does).
+
 ## Behaviour notes
 
 * `update()` returns TrackingData only when a new face detection arrived since

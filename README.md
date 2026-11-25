@@ -177,6 +177,29 @@ target\release\lithing-track run camera:0 --mode MJPEG:1280x720@30 --duration 20
   the `taskset` command to use instead.
 * `scripts/fetch_models.sh` needs `python3.12`, `curl` and `sha256sum`.
 
+## Android (experimental)
+
+* `lithing-tracking` builds for `aarch64-linux-android` (and `x86_64-linux-android`)
+  with `--no-default-features --features nnapi`: `ort` downloads its static ONNX
+  Runtime 1.31 build for Android (NNAPI included; no XNNPACK), linked into the
+  library. That build needs the NDK's `libc++_shared.so` next to the library
+  (an app puts it in `jniLibs/<abi>`). Cross-compiling needs the NDK's clang as
+  linker (`CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=<ndk>/toolchains/llvm/prebuilt/<host>/bin/aarch64-linux-android24-clang`).
+* nokhwa has no Android backend, so the camera comes from the host:
+  `push::push_source` gives a live `FrameSource` and a `FramePusher` that takes
+  RGB or YUV 4:2:0 images with any strides (Android's `YUV_420_888`), converts
+  and rotates them upright, newest frame wins. The Tauri plugin's `android/`
+  library does this with Camera2 (`LithingCameraPlugin.kt`, front cameras
+  first, frames to Rust through JNI `LithingNative.pushFrame`), closes the
+  camera while the app is in the background, and copies the models from the
+  APK's `assets/models` to the app's files folder.
+* Providers: `cpu` (Auto is the CPU on Android) and `nnapi` (explicit only:
+  drivers differ too much between phones).
+* Tests run on a device or emulator: build them with
+  `cargo test -p lithing-tracking --target x86_64-linux-android --no-default-features --features nnapi --no-run`,
+  `adb push` the binary, `libc++_shared.so` and the models, then
+  `LD_LIBRARY_PATH=. LITHING_MODELS=<dir> ./lithing_tracking-<hash>`.
+
 ## Status
 
 Working (phase 1): camera/file capture on its own thread with newest-frame-wins
@@ -188,8 +211,9 @@ crossed-hands side assignment and the tongue detector; the Tauri plugin and
 TypeScript client; every Tracking option of the web tracker, including the
 low / high light image filters (Chromium's canvas filter reproduced natively,
 see ARCHITECTURE.md "Light filters") and glasses mode; benchmarks and
-accuracy tools. Not done: Android, the camera preview in the web view while
-native tracking runs (INTEGRATION.md lists what stays web-only).
+accuracy tools; Android (experimental: Camera2 through the plugin, CPU / NNAPI).
+Not done: the camera preview in the web view while native tracking runs
+(INTEGRATION.md lists what stays web-only).
 
 ## License
 

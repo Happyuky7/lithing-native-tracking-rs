@@ -2,7 +2,8 @@ const COMMANDS: &[&str] = &["start", "stop", "update_settings", "calibrate", "st
 
 fn main() {
     // Generates the allow-/deny- permissions for every command (Tauri 2 ACL).
-    tauri_plugin::Builder::new(COMMANDS).build();
+    // android/: the Camera2 capture and the model copy (LithingCameraPlugin.kt), built into the app.
+    tauri_plugin::Builder::new(COMMANDS).android_path("android").build();
     // Test executables link tauri, which imports comctl32 v6 functions: without the
     // Common-Controls manifest Windows refuses to start them (STATUS_ENTRYPOINT_NOT_FOUND).
     let target = std::env::var("TARGET").unwrap_or_default();

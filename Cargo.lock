@@ -4066,6 +4066,7 @@ dependencies = [
 name = "tauri-plugin-lithing-tracking"
 version = "0.1.0"
 dependencies = [
+ "jni",
  "lithing-tracking",
  "serde",
  "serde_json",

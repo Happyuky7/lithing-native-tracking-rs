@@ -13,6 +13,9 @@
 
 pub mod wire;
 
+#[cfg(target_os = "android")]
+mod android;
+
 use lithing_tracking::inference::{ExecutionProvider, InferenceOptions};
 use lithing_tracking::models::{self, HandModelOptions};
 use lithing_tracking::pipeline::TrackerInfo;
@@ -95,6 +98,8 @@ struct Running {
     camera_index: Option<u32>,
     camera_mode: Option<CameraMode>,
     camera_modes: Option<Vec<CameraMode>>,
+    /// Closes a camera the host opened for this run (Android's Kotlin camera).
+    on_stop: Option<Box<dyn FnOnce() + Send>>,
 }
 
 impl Running {
@@ -105,7 +110,17 @@ impl Running {
         }
         // The forwarder held the other reference; dropping the last one stops every tracker thread.
         drop(self.tracker);
+        if let Some(on_stop) = self.on_stop.take() {
+            on_stop();
+        }
     }
+}
+
+/// A camera opened for a run: the frames' source and, for a camera the host runs
+/// (Android's Kotlin camera), what closes it when the run ends.
+pub struct OpenedCamera {
+    pub source: Box<dyn FrameSource>,
+    pub on_stop: Option<Box<dyn FnOnce() + Send>>,
 }
 
 /// Plugin state: at most one tracker.
@@ -155,6 +170,17 @@ fn status_of(running: Option<&Running>) -> Status {
 /// Starts tracking (stopping any previous run) and forwards every result to `on_frame`.
 /// Blocking: model loading takes up to a few seconds on a GPU.
 pub fn start_tracking(state: &TrackingState, options: StartOptions, default_models: Option<PathBuf>, on_frame: Channel<InvokeResponseBody>) -> Result<Status, Error> {
+    start_tracking_with(state, options, default_models, on_frame, &|request| Ok(OpenedCamera { source: open_camera(request)?, on_stop: None }))
+}
+
+/// [`start_tracking`] with the camera opened by `open_camera` (a host's own capture).
+pub fn start_tracking_with(
+    state: &TrackingState,
+    options: StartOptions,
+    default_models: Option<PathBuf>,
+    on_frame: Channel<InvokeResponseBody>,
+    open_camera: &dyn Fn(&CameraRequest) -> Result<OpenedCamera, Error>,
+) -> Result<Status, Error> {
     if let Some(previous) = state.running.lock().unwrap_or_else(|e| e.into_inner()).take() {
         previous.shutdown();
     }
@@ -184,14 +210,23 @@ pub fn start_tracking(state: &TrackingState, options: StartOptions, default_mode
     if options.camera_mode.is_some() {
         request.mode = options.camera_mode.clone();
     }
-    let source: Box<dyn FrameSource> = match &options.video_file {
-        Some(file) => Box::new(Y4mSource::open(file.as_ref())?),
+    let OpenedCamera { source, mut on_stop } = match &options.video_file {
+        Some(file) => OpenedCamera { source: Box::new(Y4mSource::open(file.as_ref())?), on_stop: None },
         None => open_camera(&request)?,
     };
     let camera_controls = source.camera_controls();
     let camera_modes = source.camera_modes();
     let (camera_index, camera_mode) = if options.video_file.is_none() { (Some(request.index), request.mode) } else { (None, None) };
-    let tracker = Arc::new(Tracker::start(source, config)?);
+    let tracker = match Tracker::start(source, config) {
+        Ok(tracker) => Arc::new(tracker),
+        Err(error) => {
+            // The models did not load: let go of the camera the host opened.
+            if let Some(on_stop) = on_stop.take() {
+                on_stop();
+            }
+            return Err(error.into());
+        }
+    };
     let info = tracker.info.clone();
     let providers = [info.face_providers[1], info.hand_providers[1]];
     let stop = Arc::new(AtomicBool::new(false));
@@ -224,7 +259,7 @@ pub fn start_tracking(state: &TrackingState, options: StartOptions, default_mode
             })
             .map_err(|e| Error::Invalid(e.to_string()))?
     };
-    let running = Running { tracker, stop, sent, forwarder: Some(forwarder), info, camera_controls, camera_index, camera_mode, camera_modes };
+    let running = Running { tracker, stop, sent, forwarder: Some(forwarder), info, camera_controls, camera_index, camera_mode, camera_modes, on_stop };
     let status = status_of(Some(&running));
     *state.running.lock().unwrap_or_else(|e| e.into_inner()) = Some(running);
     Ok(status)
@@ -295,12 +330,26 @@ pub fn stop_tracking(state: &TrackingState) {
 mod commands {
     use super::*;
 
+    #[cfg(not(target_os = "android"))]
     #[tauri::command]
     pub async fn start<R: Runtime>(app: tauri::AppHandle<R>, options: StartOptions, on_frame: Channel<InvokeResponseBody>) -> Result<Status, Error> {
         let models = app.path().resource_dir().ok().map(|dir| dir.join("models"));
         tauri::async_runtime::spawn_blocking(move || start_tracking(&app.state::<TrackingState>(), options, models, on_frame))
             .await
             .map_err(|e| Error::Invalid(e.to_string()))?
+    }
+
+    /// Android: Camera2 in Kotlin feeds the tracker; the models come out of the APK's assets.
+    #[cfg(target_os = "android")]
+    #[tauri::command]
+    pub async fn start<R: Runtime>(app: tauri::AppHandle<R>, options: StartOptions, on_frame: Channel<InvokeResponseBody>) -> Result<Status, Error> {
+        tauri::async_runtime::spawn_blocking(move || {
+            let camera = app.state::<android::AndroidCamera<R>>();
+            let models = if options.models_dir.is_some() { None } else { Some(camera.models_dir()?) };
+            start_tracking_with(&app.state::<TrackingState>(), options, models, on_frame, &|request| camera.open(request))
+        })
+        .await
+        .map_err(|e| Error::Invalid(e.to_string()))?
     }
 
     #[tauri::command]
@@ -352,6 +401,13 @@ mod commands {
         tauri::async_runtime::spawn_blocking(move || super::list_camera_formats(&app.state::<TrackingState>(), index)).await.map_err(|e| Error::Invalid(e.to_string()))?
     }
 
+    #[cfg(target_os = "android")]
+    #[tauri::command]
+    pub async fn list_cameras<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Vec<String>, Error> {
+        tauri::async_runtime::spawn_blocking(move || app.state::<android::AndroidCamera<R>>().list()).await.map_err(|e| Error::Invalid(e.to_string()))?
+    }
+
+    #[cfg(not(target_os = "android"))]
     #[tauri::command]
     pub fn list_cameras() -> Result<Vec<String>, Error> {
         #[cfg(feature = "camera")]
@@ -368,6 +424,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![commands::start, commands::stop, commands::update_settings, commands::calibrate, commands::status, commands::list_cameras, commands::set_keep_frame_rate, commands::list_camera_controls, commands::capture_level, commands::list_camera_formats])
         .setup(|app, _api| {
             app.manage(TrackingState::default());
+            #[cfg(target_os = "android")]
+            app.manage(android::AndroidCamera(_api.register_android_plugin("com.lithing.tracking", "LithingCameraPlugin")?));
             // Feature `load-dynamic` (the Linux packages): ONNX Runtime is the shared library
             // the app bundles next to its models. Without one there, lithing-tracking tries
             // ORT_DYLIB_PATH and the system's library path; if that fails too, `start`

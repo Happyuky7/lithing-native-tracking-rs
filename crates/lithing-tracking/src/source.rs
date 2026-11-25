@@ -15,6 +15,10 @@ pub enum SourceError {
     Format(String),
     #[error("camera: {0}")]
     Camera(String),
+    /// A live source had no new frame in time (a pushed stream between frames); the
+    /// capture loop simply asks again. Not an error worth counting.
+    #[error("no frame yet")]
+    NoFrame,
 }
 
 pub type Result<T> = std::result::Result<T, SourceError>;

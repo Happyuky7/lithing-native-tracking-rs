@@ -410,6 +410,8 @@ fn capture_loop(mut source: Box<dyn FrameSource>, mailbox: &LatestFrame, stats: 
         let mut frame = match source.next_frame(&pool, id) {
             Ok(Some(frame)) => frame,
             Ok(None) => break,
+            // A pushed source between frames: ask again (and see `stop`).
+            Err(crate::source::SourceError::NoFrame) => continue,
             Err(error) => {
                 stats.errors.fetch_add(1, Ordering::Relaxed);
                 *stats.last_error.lock().unwrap_or_else(|e| e.into_inner()) = Some(error.to_string());

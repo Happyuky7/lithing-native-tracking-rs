@@ -85,6 +85,7 @@ Key decisions:
 | `frame.rs` | `Frame`, `FramePool`, `LatestFrame` (one-slot mailbox, lockstep wait) |
 | `source.rs` | `Y4mSource` (+ ffmpeg pipe), `CameraSource` (nokhwa on its own thread, MJPEG→YUYV→fastest→any fallbacks, reports what it got; runs "Keep frame rate" on the camera thread: one-second delivered-rate windows + sparse frame luma) |
 | `lithing-camera-controls` (crate) | `CameraControls` trait with the Media Foundation (`windows.rs`) and V4L2 (`linux.rs`) backends, the `KeepFrameRate` policy (`keep.rs`, mock-tested) and the restore journal |
+| `push.rs` | `PushSource` / `FramePusher`: frames pushed by a host (Android's Camera2 through JNI), YUV 4:2:0 with any strides → RGB rotated upright, newest wins |
 | `geometry.rs` | rects, crops, anchors, decoding, NMS |
 | `inference.rs` | sessions, providers, `AdaptiveModel` (Auto) |
 | `models.rs` | face and hand model loops with ROI tracking |

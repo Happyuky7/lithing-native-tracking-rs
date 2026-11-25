@@ -15,6 +15,8 @@ default = ["camera", "directml"]
 camera = ["lithing-tracking/camera"]
 directml = ["lithing-tracking/directml"]
 cuda = ["lithing-tracking/cuda"]
+# Android builds (`--no-default-features --features nnapi`), e.g. model-times on a phone.
+nnapi = ["lithing-tracking/nnapi"]
 
 [dependencies]
 lithing-tracking = { workspace = true, default-features = false, features = ["serde"] }

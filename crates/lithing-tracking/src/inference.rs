@@ -23,6 +23,9 @@ pub enum ExecutionProvider {
     Cuda,
     /// ONNX Runtime's CPU kernels (MLAS; XNNPACK with the `xnnpack` feature).
     Cpu,
+    /// Android's Neural Networks API (feature `nnapi`; GPU, DSP or NPU depending on the
+    /// phone's drivers, with ONNX Runtime's CPU kernels for what NNAPI does not take).
+    Nnapi,
 }
 
 impl ExecutionProvider {
@@ -32,6 +35,7 @@ impl ExecutionProvider {
             "directml" | "dml" | "gpu" => Some(Self::DirectML),
             "cuda" => Some(Self::Cuda),
             "cpu" => Some(Self::Cpu),
+            "nnapi" => Some(Self::Nnapi),
             _ => None,
         }
     }
@@ -42,10 +46,13 @@ impl ExecutionProvider {
             Self::DirectML => "directml",
             Self::Cuda => "cuda",
             Self::Cpu => "cpu",
+            Self::Nnapi => "nnapi",
         }
     }
 
-    /// The GPU provider Auto uses on this build, if any.
+    /// The GPU provider Auto uses on this build, if any. NNAPI is never picked by Auto:
+    /// drivers differ too much between phones (some run float32 on a slow reference
+    /// implementation, some lose precision), so Android's Auto is the CPU.
     pub fn default_gpu() -> Option<Self> {
         if cfg!(feature = "cuda") {
             Some(Self::Cuda)
@@ -224,6 +231,20 @@ impl Model {
                 #[cfg(not(feature = "cuda"))]
                 return Err(InferenceError::Unavailable("cuda"));
             }
+            ExecutionProvider::Nnapi => {
+                #[cfg(feature = "nnapi")]
+                {
+                    use ort::ep::ExecutionProvider as _;
+                    let ep = ort::ep::NNAPI::default();
+                    if !ort::ep::NNAPI::is_available().unwrap_or(false) {
+                        return Err(InferenceError::Unavailable("nnapi"));
+                    }
+                    // Operators NNAPI does not take run on the CPU kernels of this worker thread.
+                    builder = builder.with_intra_threads(1)?.with_intra_op_spinning(false)?.with_execution_providers([ep.build().error_on_failure()])?;
+                }
+                #[cfg(not(feature = "nnapi"))]
+                return Err(InferenceError::Unavailable("nnapi"));
+            }
         }
         let session = builder.commit_from_memory(&bytes)?;
         let name = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
@@ -260,7 +281,7 @@ impl AdaptiveModel {
     pub fn load(path: &Path, options: &InferenceOptions) -> Result<Self> {
         let (gpu, cpu) = match options.provider {
             ExecutionProvider::Cpu => (None, Some(Model::load(path, ExecutionProvider::Cpu, options)?)),
-            ExecutionProvider::DirectML | ExecutionProvider::Cuda => (Some(Model::load(path, options.provider, options)?), None),
+            ExecutionProvider::DirectML | ExecutionProvider::Cuda | ExecutionProvider::Nnapi => (Some(Model::load(path, options.provider, options)?), None),
             ExecutionProvider::Auto => {
                 let gpu = ExecutionProvider::default_gpu().and_then(|ep| Model::load(path, ep, options).ok());
                 (gpu, Some(Model::load(path, ExecutionProvider::Cpu, options)?))

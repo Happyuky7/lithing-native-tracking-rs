@@ -41,19 +41,19 @@ pub fn set_current(priority: ThreadPriority) {
     }
     #[cfg(unix)]
     unsafe {
-        // Per-thread nice value on Linux (raising priority needs CAP_SYS_NICE; ignored otherwise).
+        // Per-thread nice value on Linux and Android (raising priority needs CAP_SYS_NICE; ignored otherwise).
         let nice = match priority {
             ThreadPriority::Lowest => 15,
             ThreadPriority::BelowNormal => 5,
             ThreadPriority::Normal => 0,
             ThreadPriority::AboveNormal => -5,
         };
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             let tid = libc::syscall(libc::SYS_gettid) as libc::id_t;
             libc::setpriority(libc::PRIO_PROCESS, tid, nice);
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
         let _ = nice;
     }
 }
