@@ -5,3 +5,11 @@
 /models/work/
 /bench-results/
 *.log
+
+# Editors, environment and operating systems
+.idea/
+.vscode/
+.env
+.env.*
+.DS_Store
+Thumbs.db
